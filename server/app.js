@@ -1,7 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+// Only load .env file in development
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+}
 
 const apartmentsRouter = require('./routes/apartments');
 const geocodeRouter = require('./routes/geocode');

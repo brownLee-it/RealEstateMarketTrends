@@ -1,6 +1,6 @@
-const express = require('express');
-const axios = require('axios');
-const { parseStringPromise } = require('xml2js');
+import express from 'express';
+import axios from 'axios';
+import { parseStringPromise } from 'xml2js';
 const router = express.Router();
 
 // In-memory cache
@@ -158,4 +158,6 @@ router.get('/history', async (req, res) => {
     }
 });
 
-module.exports = router;
+
+
+export default router;

@@ -1,6 +1,10 @@
-const express = require('express');
-const axios = require('axios');
+import express from 'express';
+import axios from 'axios';
 const router = express.Router();
+
+// ...
+
+export default router;
 
 // GET /api/geocode?query=서울시 강남구 역삼동 123
 router.get('/', async (req, res) => {

@@ -13,8 +13,8 @@ router.get('/', async (req, res) => {
         const response = await axios.get('https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode', {
             params: { query },
             headers: {
-                'X-NCP-APIGW-API-KEY-ID': process.env.NAVER_CLIENT_ID,
-                'X-NCP-APIGW-API-KEY': process.env.NAVER_CLIENT_SECRET,
+                'X-NCP-APIGW-API-KEY-ID': process.env.NAVER_MAPS_CLIENT_ID,
+                'X-NCP-APIGW-API-KEY': process.env.NAVER_MAPS_CLIENT_SECRET,
             },
             timeout: 10000,
         });

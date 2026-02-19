@@ -1,6 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import { parseStringPromise } from 'xml2js';
+
 const router = express.Router();
 
 // In-memory cache
@@ -32,7 +33,6 @@ router.get('/', async (req, res) => {
         const serviceKey = process.env.DATA_GO_KR_API_KEY;
         const url = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade';
 
-        // ... (axios call) ...
         const response = await axios.get(url, {
             params: {
                 serviceKey,
@@ -42,11 +42,87 @@ router.get('/', async (req, res) => {
                 numOfRows: 1000,
             },
             timeout: 15000,
-            responseType: 'text', // Force text to handle both XML and JSON manually
+            responseType: 'text',
         });
 
-        // ...
+        const rawData = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
 
+        let body;
+        if (rawData.trim().startsWith('<')) {
+            const parsed = await parseStringPromise(rawData, {
+                explicitArray: false,
+                trim: true,
+            });
+            body = parsed?.response?.body;
+        } else {
+            try {
+                const jsonData = typeof response.data === 'string' ? JSON.parse(rawData) : response.data;
+                body = jsonData?.response?.body;
+            } catch (e) {
+                console.error('API 응답 파싱 실패:', rawData.substring(0, 200));
+                return res.status(502).json({ error: 'API 응답 파싱 오류' });
+            }
+        }
+        if (!body || !body.items) {
+            return res.json({ apartments: [], totalCount: 0 });
+        }
+
+        let items = body.items.item;
+        if (!items) {
+            return res.json({ apartments: [], totalCount: 0 });
+        }
+        if (!Array.isArray(items)) {
+            items = [items];
+        }
+
+        const apartments = items.map((item) => ({
+            aptName: String(item['아파트'] || item.aptNm || '').trim(),
+            price: String(item['거래금액'] || item.dealAmount || '').trim().replace(/,/g, ''),
+            area: parseFloat(item['전용면적'] || item.excluUseAr || 0),
+            floor: parseInt(item['층'] || item.floor || 0, 10),
+            buildYear: parseInt(item['건축년도'] || item.buildYear || 0, 10),
+            dealYear: parseInt(item['년'] || item.dealYear || 0, 10),
+            dealMonth: parseInt(item['월'] || item.dealMonth || 0, 10),
+            dealDay: parseInt(item['일'] || item.dealDay || 0, 10),
+            dong: String(item['법정동'] || item.umdNm || '').trim(),
+            jibun: String(item['지번'] || item.jibun || '').trim(),
+            regionCode: String(item['지역코드'] || item.dealingGbn || regionCode).trim(),
+            serialNumber: String(item['일련번호'] || '').trim(),
+        }));
+
+        // Group by apartment name for aggregation
+        const groupedMap = new Map();
+        apartments.forEach((apt) => {
+            const key = `${apt.aptName}_${apt.dong}_${apt.jibun}`;
+            if (!groupedMap.has(key)) {
+                groupedMap.set(key, {
+                    aptName: apt.aptName,
+                    dong: apt.dong,
+                    jibun: apt.jibun,
+                    buildYear: apt.buildYear,
+                    regionCode: apt.regionCode,
+                    transactions: [],
+                });
+            }
+            groupedMap.get(key).transactions.push({
+                price: parseInt(apt.price, 10),
+                area: apt.area,
+                floor: apt.floor,
+                dealYear: apt.dealYear,
+                dealMonth: apt.dealMonth,
+                dealDay: apt.dealDay,
+            });
+        });
+
+        const result = {
+            apartments: Array.from(groupedMap.values()),
+            totalCount: apartments.length,
+            regionCode,
+            yearMonth,
+        };
+
+        cache.set(cacheKey, { data: result, timestamp: Date.now() });
+        res.json(result);
     } catch (error) {
         console.error('아파트 실거래가 API 호출 오류:', error.message);
         if (error.response) {
@@ -73,7 +149,6 @@ router.get('/history', async (req, res) => {
         const monthCount = Math.min(parseInt(months, 10), 60);
         const allTransactions = [];
 
-        // Fetch data for each month
         const fetchPromises = [];
         for (let i = 0; i < monthCount; i++) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -157,7 +232,5 @@ router.get('/history', async (req, res) => {
         res.status(500).json({ error: '이력 데이터를 불러오는 중 오류가 발생했습니다.' });
     }
 });
-
-
 
 export default router;

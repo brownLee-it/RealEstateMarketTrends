@@ -1,13 +1,19 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import apartmentsRouter from './routes/apartments.js';
+import geocodeRouter from './routes/geocode.js';
+
+// ESM __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Only load .env file in development
 if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+    const dotenv = await import('dotenv');
+    dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 }
-
-const apartmentsRouter = require('./routes/apartments');
-const geocodeRouter = require('./routes/geocode');
 
 const app = express();
 
@@ -23,4 +29,4 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-module.exports = app;
+export default app;

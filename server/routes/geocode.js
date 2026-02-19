@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
             return res.status(400).json({ error: 'query 파라미터가 필요합니다.' });
         }
 
-        const response = await axios.get('https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode', {
+        const response = await axios.get('https://maps.apigw.ntruss.com/map-geocode/v2/geocode', {
             params: { query },
             headers: {
                 'X-NCP-APIGW-API-KEY-ID': process.env.NAVER_MAPS_CLIENT_ID,

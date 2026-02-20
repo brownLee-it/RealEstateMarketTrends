@@ -41,7 +41,7 @@ router.get('/', async (req, res) => {
                 pageNo: 1,
                 numOfRows: 1000,
             },
-            timeout: 15000,
+            timeout: 45000,
             responseType: 'text',
         });
 
@@ -175,7 +175,7 @@ router.get('/history', async (req, res) => {
                                 pageNo: 1,
                                 numOfRows: 1000,
                             },
-                            timeout: 15000,
+                            timeout: 45000,
                         })
                         .then(async (response) => {
                             const rawData = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);

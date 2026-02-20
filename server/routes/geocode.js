@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
             headers: {
                 'Authorization': `KakaoAK ${process.env.KAKAO_REST_API_KEY}`,
             },
-            timeout: 10000,
+            timeout: 20000,
         });
 
         // Transform Kakao response to match existing frontend format

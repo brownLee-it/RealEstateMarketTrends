@@ -1,11 +1,10 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import './App.css';
 import SearchPanel from './components/SearchPanel';
 import StatsCards from './components/StatsCards';
 import PriceChart from './components/PriceChart';
 import AptDetailPanel from './components/AptDetailPanel';
 import KakaoMap from './components/KakaoMap';
-import NaverMap from './components/NaverMap';
 import PanoramaView from './components/PanoramaView';
 import { fetchApartments, geocodeAddress } from './utils/api';
 import { REGION_CENTERS } from './utils/regions';
@@ -22,45 +21,6 @@ function App() {
     const [mapZoom, setMapZoom] = useState(14);
     const [geocodedApts, setGeocodedApts] = useState([]);
     const [sidebarTab, setSidebarTab] = useState('search'); // 'search', 'detail', 'chart'
-    const [activeMap, setActiveMap] = useState('kakao'); // 'kakao', 'naver'
-    const [naverScriptLoaded, setNaverScriptLoaded] = useState(false);
-
-    // Load Naver Map Script dynamically
-    useEffect(() => {
-        if (activeMap === 'naver') {
-            if (window.naver && window.naver.maps) {
-                setNaverScriptLoaded(true);
-                return;
-            }
-
-            const scriptId = 'naver-map-script';
-            if (document.getElementById(scriptId)) {
-                setNaverScriptLoaded(true);
-                return;
-            }
-
-            // Fallback to hardcoded ID if env var fails
-            const clientId = import.meta.env.VITE_NAVER_CLIENT_ID?.trim();
-
-            if (!clientId) {
-                console.error('Naver Client ID is missing!');
-                return;
-            }
-
-            const script = document.createElement('script');
-            script.id = scriptId;
-            script.type = 'text/javascript';
-            script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`;
-            script.async = true;
-            script.referrerPolicy = "origin"; // Fix for Vercel deployment auth error
-            document.head.appendChild(script);
-
-            script.onload = () => {
-                console.log('Naver Map script loaded. Client ID:', import.meta.env.VITE_NAVER_CLIENT_ID);
-                setNaverScriptLoaded(true);
-            };
-        }
-    }, [activeMap]);
 
     const handleSearch = useCallback(async (regionCode, yearMonth, regionName, districtName) => {
         setLoading(true);
@@ -158,19 +118,9 @@ function App() {
                     <span className="header-subtitle">전국 아파트 실거래가 비교 서비스</span>
                 </div>
                 <div className="header-right">
-                    <div className="map-toggle-group">
-                        <button
-                            className={`map-toggle-btn ${activeMap === 'kakao' ? 'active' : ''}`}
-                            onClick={() => setActiveMap('kakao')}
-                        >
-                            카카오
-                        </button>
-                        <button
-                            className={`map-toggle-btn ${activeMap === 'naver' ? 'active' : ''}`}
-                            onClick={() => setActiveMap('naver')}
-                        >
-                            네이버
-                        </button>
+                    <div className="header-badge">
+                        <span className="badge-dot"></span>
+                        <span>Live Data</span>
                     </div>
                 </div>
             </header>
@@ -269,27 +219,14 @@ function App() {
 
                 {/* Map Area */}
                 <main className="map-area">
-                    {activeMap === 'kakao' ? (
-                        <KakaoMap
-                            center={mapCenter}
-                            zoom={mapZoom}
-                            apartments={geocodedApts}
-                            selectedApt={selectedApt}
-                            onSelectApt={handleSelectApt}
-                            onShowPanorama={handleShowPanorama}
-                        />
-                    ) : (
-                        naverScriptLoaded && (
-                            <NaverMap
-                                center={mapCenter}
-                                zoom={mapZoom}
-                                apartments={geocodedApts}
-                                selectedApt={selectedApt}
-                                onSelectApt={handleSelectApt}
-                                onShowPanorama={handleShowPanorama}
-                            />
-                        )
-                    )}
+                    <KakaoMap
+                        center={mapCenter}
+                        zoom={mapZoom}
+                        apartments={geocodedApts}
+                        selectedApt={selectedApt}
+                        onSelectApt={handleSelectApt}
+                        onShowPanorama={handleShowPanorama}
+                    />
 
                     {/* Panorama Overlay */}
                     {showPanorama && panoramaPosition && (

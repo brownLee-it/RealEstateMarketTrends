@@ -9,6 +9,8 @@ import PanoramaView from './components/PanoramaView';
 import { fetchApartments, geocodeAddress } from './utils/api';
 import { REGION_CENTERS } from './utils/regions';
 
+import GoogleMap from './components/GoogleMap';
+
 function App() {
     const [apartments, setApartments] = useState([]);
     const [selectedApt, setSelectedApt] = useState(null);
@@ -21,6 +23,7 @@ function App() {
     const [mapZoom, setMapZoom] = useState(14);
     const [geocodedApts, setGeocodedApts] = useState([]);
     const [sidebarTab, setSidebarTab] = useState('search'); // 'search', 'detail', 'chart'
+    const [mapProvider, setMapProvider] = useState('kakao'); // 'kakao' | 'google'
 
     const handleSearch = useCallback(async (regionCode, yearMonth, regionName, districtName) => {
         setLoading(true);
@@ -42,39 +45,47 @@ function App() {
             }
 
             // Geocode apartments for map markers
-            const geocoded = [];
+            // const geocoded = []; // Removed to avoid conflict with const geocoded below
             const aptGroups = data.apartments || [];
 
             // Geocode up to 30 apartments for display
             const toGeocode = aptGroups.slice(0, 30);
-            for (const apt of toGeocode) {
+
+            const geocodedResults = await Promise.all(toGeocode.map(async (apt) => {
                 try {
                     let address = `${districtName} ${apt.dong} ${apt.jibun}`;
                     let geoResult = await geocodeAddress(address);
 
-                    // Retry with relaxed address (City + Dong) if failed
-                    // e.g. "창원시 성산구 북면" (Fail) -> "창원시 북면" (Success)
+                    // Retry 1: Relaxed address (District + Dong)
+                    if (!geoResult.addresses || geoResult.addresses.length === 0) {
+                        const dongAddress = `${districtName} ${apt.dong}`;
+                        geoResult = await geocodeAddress(dongAddress);
+                    }
+
+                    // Retry 2: City + Dong
                     if ((!geoResult.addresses || geoResult.addresses.length === 0) && districtName.includes(' ')) {
                         const cityPart = districtName.split(' ')[0];
-                        const fallbackAddress = `${cityPart} ${apt.dong} ${apt.jibun}`;
-                        // console.log(`Geocoding retry: ${fallbackAddress}`);
+                        const fallbackAddress = `${cityPart} ${apt.dong}`;
                         geoResult = await geocodeAddress(fallbackAddress);
                     }
 
                     if (geoResult.addresses && geoResult.addresses.length > 0) {
                         const { x, y } = geoResult.addresses[0];
                         const avgPrice = apt.transactions.reduce((sum, t) => sum + t.price, 0) / apt.transactions.length;
-                        geocoded.push({
+                        return {
                             ...apt,
                             lat: parseFloat(y),
                             lng: parseFloat(x),
                             avgPrice: Math.round(avgPrice),
-                        });
+                        };
                     }
                 } catch (e) {
-                    // console.error('Geocoding failed for:', apt.aptName);
+                    console.error('Geocoding failed for:', apt.aptName);
                 }
-            }
+                return null;
+            }));
+
+            const geocoded = geocodedResults.filter(item => item !== null);
 
             setGeocodedApts(geocoded);
             if (geocoded.length > 0) {
@@ -86,6 +97,8 @@ function App() {
             setLoading(false);
         }
     }, []);
+
+
 
     const handleSelectApt = useCallback((apt) => {
         setSelectedApt(apt);
@@ -219,14 +232,40 @@ function App() {
 
                 {/* Map Area */}
                 <main className="map-area">
-                    <KakaoMap
-                        center={mapCenter}
-                        zoom={mapZoom}
-                        apartments={geocodedApts}
-                        selectedApt={selectedApt}
-                        onSelectApt={handleSelectApt}
-                        onShowPanorama={handleShowPanorama}
-                    />
+                    <div className="map-provider-toggle">
+                        <button
+                            className={`provider-btn ${mapProvider === 'kakao' ? 'active' : ''}`}
+                            onClick={() => setMapProvider('kakao')}
+                        >
+                            Kakao Map
+                        </button>
+                        <button
+                            className={`provider-btn ${mapProvider === 'google' ? 'active' : ''}`}
+                            onClick={() => setMapProvider('google')}
+                        >
+                            Google Map
+                        </button>
+                    </div>
+
+                    {mapProvider === 'kakao' ? (
+                        <KakaoMap
+                            center={mapCenter}
+                            zoom={mapZoom}
+                            apartments={geocodedApts}
+                            selectedApt={selectedApt}
+                            onSelectApt={handleSelectApt}
+                            onShowPanorama={handleShowPanorama}
+                        />
+                    ) : (
+                        <GoogleMap
+                            center={mapCenter}
+                            zoom={mapZoom}
+                            apartments={geocodedApts}
+                            selectedApt={selectedApt}
+                            onSelectApt={handleSelectApt}
+                            onShowPanorama={handleShowPanorama}
+                        />
+                    )}
 
                     {/* Panorama Overlay */}
                     {showPanorama && panoramaPosition && (

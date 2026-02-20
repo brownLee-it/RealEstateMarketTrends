@@ -642,6 +642,11 @@
     text-align: center;
     line-height: 1.3;
     border: 1px solid rgba(255, 255, 255, 0.15);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    display: inline-block;
+    /* Ensure it wraps content */
+    min-width: max-content;
+    /* Force background to fit text */
 }
 
 .marker-bubble .marker-name {
@@ -723,4 +728,47 @@
         top: 0;
         border-radius: 0;
     }
+}
+
+/* Map Provider Toggle */
+.map-provider-toggle {
+    position: absolute;
+    top: 16px;
+    /* Below the header, or adjust based on layout. App header is 56px. map-area is relative. */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    display: flex;
+    gap: 4px;
+    /* Added gap */
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 4px;
+    box-shadow: var(--shadow-md);
+}
+
+.provider-btn {
+    padding: 6px 16px;
+    border: none;
+    background: none;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Inter', sans-serif;
+    /* Fallback */
+}
+
+.provider-btn.active {
+    background: var(--accent-blue);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.provider-btn:hover:not(.active) {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
 }

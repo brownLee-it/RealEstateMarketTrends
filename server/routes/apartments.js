@@ -27,12 +27,16 @@ router.get('/', async (req, res) => {
         }
 
         if (!process.env.DATA_GO_KR_API_KEY) {
-            console.error('DATA_GO_KR_API_KEY is missing');
+            console.error('DATA_GO_KR_API_KEY is missing in process.env');
             return res.status(500).json({ error: 'Server misconfiguration: Missing API Key' });
         }
+        console.log(`Requesting data for region: ${regionCode}, yearMonth: ${yearMonth}`);
         const serviceKey = process.env.DATA_GO_KR_API_KEY;
+        // console.log('Service Key:', serviceKey); // Be careful logging keys
+
         const url = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade';
 
+        console.log('Calling axios...');
         const response = await axios.get(url, {
             params: {
                 serviceKey,
@@ -44,6 +48,7 @@ router.get('/', async (req, res) => {
             timeout: 45000,
             responseType: 'text',
         });
+        console.log('Axios response received. Status:', response.status);
 
         const rawData = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
 

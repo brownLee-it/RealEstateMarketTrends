@@ -50,6 +50,7 @@ function App() {
             script.type = 'text/javascript';
             script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`;
             script.async = true;
+            script.referrerPolicy = "origin"; // Fix for Vercel deployment auth error
             document.head.appendChild(script);
 
             script.onload = () => {

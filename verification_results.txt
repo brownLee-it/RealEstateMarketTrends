@@ -1,0 +1,2 @@
+[MISMATCH] 세종특별자치시: Expected 36110, but got 36000 (Full b_code: 3600000000)
+Verification finished with mismatches.

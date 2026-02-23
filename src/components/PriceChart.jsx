@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid,
-    Tooltip, ResponsiveContainer, Legend, Area, AreaChart
+    Tooltip, ResponsiveContainer, Legend, Area, ComposedChart
 } from 'recharts';
 import { fetchApartmentHistory } from '../utils/api';
 import { formatPrice } from '../utils/format';
@@ -110,7 +110,7 @@ export default function PriceChart({ apartment, searchInfo }) {
                     </div>
                 ) : (
                     <ResponsiveContainer width="100%" height={280}>
-                        <AreaChart data={chartData}>
+                        <ComposedChart data={chartData}>
                             <defs>
                                 <linearGradient id="avgGradient" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#4a9eff" stopOpacity={0.3} />
@@ -167,7 +167,7 @@ export default function PriceChart({ apartment, searchInfo }) {
                                 dot={false}
                                 strokeDasharray="4 4"
                             />
-                        </AreaChart>
+                        </ComposedChart>
                     </ResponsiveContainer>
                 )}
             </div>

@@ -204,11 +204,11 @@ router.get('/history', async (req, res) => {
                                 if (name.includes(aptName)) {
                                     allTransactions.push({
                                         price: parseInt(String(item['거래금액'] || item.dealAmount || '0').trim().replace(/,/g, ''), 10),
-                                        area: parseFloat(item['전용면적'] || 0),
-                                        floor: parseInt(item['층'] || 0, 10),
-                                        dealYear: parseInt(item['년'] || 0, 10),
-                                        dealMonth: parseInt(item['월'] || 0, 10),
-                                        dealDay: parseInt(item['일'] || 0, 10),
+                                        area: parseFloat(item['전용면적'] || item.excluUseAr || 0),
+                                        floor: parseInt(item['층'] || item.floor || 0, 10),
+                                        dealYear: parseInt(item['년'] || item.dealYear || 0, 10),
+                                        dealMonth: parseInt(item['월'] || item.dealMonth || 0, 10),
+                                        dealDay: parseInt(item['일'] || item.dealDay || 0, 10),
                                     });
                                 }
                             });

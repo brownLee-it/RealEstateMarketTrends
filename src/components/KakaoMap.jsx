@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { formatPriceShort } from '../utils/format';
 import { getMarkerColorByPrice } from '../utils/colors';
 
-export default function KakaoMap({ center, zoom, apartments, selectedApt, onSelectApt, onShowPanorama, favorites = [] }) {
+export default function KakaoMap({ center, zoom, apartments, selectedApt, onSelectApt, onShowPanorama, favorites = [], onMapMove }) {
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const overlaysRef = useRef([]);
@@ -39,6 +39,27 @@ export default function KakaoMap({ center, zoom, apartments, selectedApt, onSele
             const mapTypeControl = new window.kakao.maps.MapTypeControl();
             map.addControl(mapTypeControl, window.kakao.maps.ControlPosition.TOPRIGHT);
 
+            // Listen for map movements to sync with parent
+            window.kakao.maps.event.addListener(map, 'dragend', function () {
+                if (onMapMove) {
+                    const currentCenter = map.getCenter();
+                    const lat = currentCenter.getLat();
+                    const lng = currentCenter.getLng();
+                    lastPannedCenter.current = { lat, lng };
+                    onMapMove({ lat, lng }, 21 - map.getLevel() + 1); // rough back-conversion
+                }
+            });
+
+            window.kakao.maps.event.addListener(map, 'zoom_changed', function () {
+                if (onMapMove) {
+                    const currentCenter = map.getCenter();
+                    const lat = currentCenter.getLat();
+                    const lng = currentCenter.getLng();
+                    lastPannedCenter.current = { lat, lng };
+                    onMapMove({ lat, lng }, 21 - map.getLevel() + 1);
+                }
+            });
+
             mapInstanceRef.current = map;
             setMapReady(true);
 
@@ -53,13 +74,44 @@ export default function KakaoMap({ center, zoom, apartments, selectedApt, onSele
         };
     }, []);
 
+    // Track the last center prop we actually panned to, so we don't re-pan
+    // if the app just re-renders with the same coordinates.
+    const lastPannedCenter = useRef({ lat: center.lat, lng: center.lng });
+
     // Update center and zoom
     useEffect(() => {
         if (!mapInstanceRef.current) return;
-        const moveLatLng = new window.kakao.maps.LatLng(center.lat, center.lng);
-        mapInstanceRef.current.setCenter(moveLatLng);
-        mapInstanceRef.current.setLevel(zoomToLevel(zoom));
-    }, [center.lat, center.lng, zoom]);
+
+        // Has the desired center actually changed from our last known target?
+        const reqLat = center.lat;
+        const reqLng = center.lng;
+
+        const knownLat = lastPannedCenter.current.lat;
+        const knownLng = lastPannedCenter.current.lng;
+
+        if (Math.abs(reqLat - knownLat) > 0.000001 || Math.abs(reqLng - knownLng) > 0.000001) {
+            // The parent specifically requested a new location we haven't seen yet.
+            const propCenter = new window.kakao.maps.LatLng(reqLat, reqLng);
+
+            // Check if the map is already there anyway (e.g. from user drag)
+            const currentCenter = mapInstanceRef.current.getCenter();
+            const latDiff = Math.abs(currentCenter.getLat() - propCenter.getLat());
+            const lngDiff = Math.abs(currentCenter.getLng() - propCenter.getLng());
+
+            if (latDiff > 0.0001 || lngDiff > 0.0001) {
+                mapInstanceRef.current.panTo(propCenter);
+            }
+
+            // Remember this as the last target we processed
+            lastPannedCenter.current = { lat: reqLat, lng: reqLng };
+        }
+
+        const currentLevel = mapInstanceRef.current.getLevel();
+        const targetLevel = zoomToLevel(zoom);
+        if (currentLevel !== targetLevel) {
+            mapInstanceRef.current.setLevel(targetLevel);
+        }
+    }, [center.lat, center.lng, zoom]); // Depend on primitives, not the 'center' object itself
 
     // Update markers
     useEffect(() => {
@@ -87,7 +139,10 @@ export default function KakaoMap({ center, zoom, apartments, selectedApt, onSele
                 </div>
                 <div class="marker-tail" style="border-top: 6px solid ${bgColor};"></div>
             `;
-            content.addEventListener('click', () => onSelectApt(apt));
+            content.addEventListener('click', (e) => {
+                e.stopPropagation();
+                onSelectApt(apt);
+            });
 
             const overlay = new window.kakao.maps.CustomOverlay({
                 position: new window.kakao.maps.LatLng(apt.lat, apt.lng),

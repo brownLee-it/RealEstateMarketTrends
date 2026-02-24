@@ -17,7 +17,7 @@ const mapOptions = {
     clickableIcons: false, // Prevent clicking on POIs
 };
 
-function GoogleMapComponent({ center, zoom, apartments, selectedApt, onSelectApt, onShowPanorama, favorites = [] }) {
+function GoogleMapComponent({ center, zoom, apartments, selectedApt, onSelectApt, onShowPanorama, favorites = [], onMapMove }) {
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
         googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
@@ -46,13 +46,64 @@ function GoogleMapComponent({ center, zoom, apartments, selectedApt, onSelectApt
         setMapReady(false);
     }, []);
 
+    // Track the last center prop we actually panned to
+    const lastPannedCenter = useRef({ lat: center?.lat, lng: center?.lng });
+
     // Update center and zoom when props change
     useEffect(() => {
-        if (map) {
-            map.panTo(center);
+        if (map && center) {
+            const reqLat = center.lat;
+            const reqLng = center.lng;
+
+            const knownLat = lastPannedCenter.current.lat;
+            const knownLng = lastPannedCenter.current.lng;
+
+            // Only pan if we received a genuinely new center instruction from the parent
+            if (Math.abs(reqLat - knownLat) > 0.000001 || Math.abs(reqLng - knownLng) > 0.000001) {
+                const currentCenter = map.getCenter();
+                if (currentCenter) {
+                    const latDiff = Math.abs(currentCenter.lat() - reqLat);
+                    const lngDiff = Math.abs(currentCenter.lng() - reqLng);
+
+                    // Only pan if prop center differs significantly from map center
+                    if (latDiff > 0.0001 || lngDiff > 0.0001) {
+                        map.panTo(center);
+                    }
+                }
+                lastPannedCenter.current = { lat: reqLat, lng: reqLng };
+            }
+        }
+    }, [center.lat, center.lng, map]);
+
+    useEffect(() => {
+        if (map && zoom && map.getZoom() !== zoom) {
             map.setZoom(zoom);
         }
-    }, [center, zoom, map]);
+    }, [zoom, map]);
+
+    const handleDragEnd = useCallback(() => {
+        if (map && onMapMove) {
+            const currentCenter = map.getCenter();
+            if (currentCenter) {
+                const lat = currentCenter.lat();
+                const lng = currentCenter.lng();
+                lastPannedCenter.current = { lat, lng };
+                onMapMove({ lat, lng }, map.getZoom());
+            }
+        }
+    }, [map, onMapMove]);
+
+    const handleZoomChanged = useCallback(() => {
+        if (map && onMapMove) {
+            const currentCenter = map.getCenter();
+            if (currentCenter) {
+                const lat = currentCenter.lat();
+                const lng = currentCenter.lng();
+                lastPannedCenter.current = { lat, lng };
+                onMapMove({ lat, lng }, map.getZoom());
+            }
+        }
+    }, [map, onMapMove]);
 
     if (!isLoaded) {
         return <div className="map-loading-overlay">
@@ -70,6 +121,8 @@ function GoogleMapComponent({ center, zoom, apartments, selectedApt, onSelectApt
                 options={mapOptions}
                 onLoad={onLoad}
                 onUnmount={onUnmount}
+                onDragEnd={handleDragEnd}
+                onZoomChanged={handleZoomChanged}
             >
                 {/* Debug Marker to verify map is working */}
                 {/* <Marker position={center} label="Center" /> */}

@@ -3,24 +3,27 @@ import axios from 'axios';
 
 const router = express.Router();
 
-// GET /api/geocode?query=서울시 강남구 역삼동 123
+// GET /api/geocode?query=서울시 강남구 역삼동 123&type=address
 router.get('/', async (req, res) => {
     try {
-        const { query } = req.query;
-        console.log(`Geocoding request for query: '${query}'`);
+        const { query, type = 'address' } = req.query;
+        console.log(`Geocoding request for query: '${query}', type: '${type}'`);
 
         const apiKey = process.env.KAKAO_REST_API_KEY;
         if (!apiKey) {
             console.error('KAKAO_REST_API_KEY is missing');
             return res.status(500).json({ error: 'Server configuration error' });
         }
-        console.log(`Using Kakao Key: ${apiKey.substring(0, 4)}...`);
 
         if (!query) {
             return res.status(400).json({ error: 'query 파라미터가 필요합니다.' });
         }
 
-        const response = await axios.get('https://dapi.kakao.com/v2/local/search/address.json', {
+        const url = type === 'keyword'
+            ? 'https://dapi.kakao.com/v2/local/search/keyword.json'
+            : 'https://dapi.kakao.com/v2/local/search/address.json';
+
+        const response = await axios.get(url, {
             params: { query },
             headers: {
                 'Authorization': `KakaoAK ${apiKey}`,
@@ -28,17 +31,15 @@ router.get('/', async (req, res) => {
             timeout: 20000,
         });
 
-        console.log('Kakao Response Data:', JSON.stringify(response.data));
-
         // Transform Kakao response to match existing frontend format
         const kakaoDocuments = response.data.documents || [];
-        console.log(`Geocoding success. Found ${kakaoDocuments.length} documents.`);
 
         const addresses = kakaoDocuments.map(doc => ({
             x: doc.x,  // longitude
             y: doc.y,  // latitude
-            roadAddress: doc.road_address ? doc.road_address.address_name : '',
-            jibunAddress: doc.address ? doc.address.address_name : '',
+            roadAddress: doc.road_address ? doc.road_address.address_name : (doc.road_address_name || ''),
+            jibunAddress: doc.address ? doc.address.address_name : (doc.address_name || ''),
+            placeName: doc.place_name || ''
         }));
 
         res.json({ addresses });

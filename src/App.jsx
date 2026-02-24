@@ -6,8 +6,8 @@ import PriceChart from './components/PriceChart';
 import AptDetailPanel from './components/AptDetailPanel';
 import KakaoMap from './components/KakaoMap';
 import PanoramaView from './components/PanoramaView';
-import { fetchApartments, geocodeAddress, fetchApartmentsByKeyword } from './utils/api';
-import { REGION_CENTERS } from './utils/regions';
+import { fetchApartments, geocodeAddress, fetchApartmentsByKeyword, geocodeKeyword } from './utils/api';
+import { REGIONS, DISTRICTS, REGION_CENTERS } from './utils/regions';
 
 import GoogleMap from './components/GoogleMap';
 
@@ -84,8 +84,15 @@ function App() {
 
             const geocodedResults = await Promise.all(toGeocode.map(async (apt) => {
                 try {
-                    let address = `${districtName} ${apt.dong} ${apt.jibun}`;
-                    let geoResult = await geocodeAddress(address);
+                    // Try keyword search first: "구/군 동 아파트명"
+                    const keywordQuery = `${districtName} ${apt.dong} ${apt.aptName}`;
+                    let geoResult = await geocodeKeyword(keywordQuery);
+
+                    // Fallback to exact address
+                    if (!geoResult.addresses || geoResult.addresses.length === 0) {
+                        let address = `${districtName} ${apt.dong} ${apt.jibun}`;
+                        geoResult = await geocodeAddress(address);
+                    }
 
                     // Retry 1: Relaxed address (District + Dong)
                     if (!geoResult.addresses || geoResult.addresses.length === 0) {
@@ -132,12 +139,41 @@ function App() {
 
 
     const handleSelectApt = useCallback(async (apt) => {
-        // If we already have coordinates, just use them
+        // If we already have coordinates AND searchInfo has region properly set, just use them
+        // If the user selects a favorite that was saved with a bad coordinate or missing searchInfo, we re-geocode it.
+        // For simplicity, let's always update searchInfo if we can.
+
+        let targetRegionName = null;
+        let targetDistrictName = null;
+
+        if (apt.regionCode) {
+            const regionPrefix = apt.regionCode.substring(0, 2);
+            const region = REGIONS.find(r => r.code === regionPrefix);
+            const districtList = DISTRICTS[regionPrefix] || [];
+            const district = districtList.find(d => d.code === apt.regionCode);
+
+            if (region) {
+                targetRegionName = region.name;
+                if (district) targetDistrictName = district.name;
+            }
+        }
+
         if (apt.lat && apt.lng) {
             setSelectedApt(apt);
             setSidebarTab('detail');
-            setMapCenter({ lat: apt.lat, lng: apt.lng });
-            setMapZoom(17);
+            // Do NOT re-center map if it already has coordinates, to allow Google-like behavior
+            // setMapCenter({ lat: apt.lat, lng: apt.lng });
+            // setMapZoom(17);
+
+            // Fix searchInfo for display in DetailPanel
+            if (targetRegionName) {
+                setSearchInfo(prev => ({
+                    ...prev,
+                    regionCode: apt.regionCode,
+                    regionName: targetRegionName,
+                    districtName: targetDistrictName || prev.districtName
+                }));
+            }
 
             // Add to geocodedApts if not already there so it shows on the map
             setGeocodedApts(prev => {
@@ -154,14 +190,36 @@ function App() {
         setSidebarTab('detail');
 
         try {
-            // Need to reconstruct address - fallback to searchInfo if not available on apt object
-            // For favorites, we might need to store regionName/districtName when favoriting, 
-            // but for now let's try with just the dong and jibun, or basic geocoding
-            const address = apt.fullAddress || `${apt.dong} ${apt.jibun}`;
-            let geoResult = await geocodeAddress(address);
+            // Try to construct a full address using the region code if available
+            let address = apt.fullAddress;
+            let fallbackAddress = apt.dong;
+            let keywordQuery = `${apt.dong} ${apt.aptName}`;
+
+            if (targetRegionName) {
+                if (targetDistrictName) {
+                    address = `${targetRegionName} ${targetDistrictName} ${apt.dong} ${apt.jibun}`;
+                    fallbackAddress = `${targetRegionName} ${targetDistrictName} ${apt.dong}`;
+                    keywordQuery = `${targetRegionName} ${targetDistrictName} ${apt.dong} ${apt.aptName}`;
+                } else {
+                    address = `${targetRegionName} ${apt.dong} ${apt.jibun}`;
+                    fallbackAddress = `${targetRegionName} ${apt.dong}`;
+                    keywordQuery = `${targetRegionName} ${apt.dong} ${apt.aptName}`;
+                }
+            }
+
+            // Ultimate fallback
+            if (!address) address = `${apt.dong} ${apt.jibun}`;
+
+            // Try Keyword Search first for precise POI location
+            let geoResult = await geocodeKeyword(keywordQuery);
+
+            // Fallback to Address Search if Keyword fails
+            if (!geoResult.addresses || geoResult.addresses.length === 0) {
+                geoResult = await geocodeAddress(address);
+            }
 
             if (!geoResult.addresses || geoResult.addresses.length === 0) {
-                geoResult = await geocodeAddress(apt.dong);
+                geoResult = await geocodeAddress(fallbackAddress);
             }
 
             if (geoResult.addresses && geoResult.addresses.length > 0) {
@@ -173,8 +231,8 @@ function App() {
                 };
 
                 setSelectedApt(updatedApt);
-                setMapCenter({ lat: updatedApt.lat, lng: updatedApt.lng });
-                setMapZoom(17);
+                // setMapCenter({ lat: updatedApt.lat, lng: updatedApt.lng });
+                // setMapZoom(17);
 
                 // Add to geocodedApts so it appears on the map
                 setGeocodedApts(prev => {
@@ -200,6 +258,11 @@ function App() {
     const handleClosePanorama = useCallback(() => {
         setShowPanorama(false);
         setPanoramaPosition(null);
+    }, []);
+
+    const handleMapMove = useCallback((newCenter, newZoom) => {
+        setMapCenter(newCenter);
+        if (newZoom) setMapZoom(newZoom);
     }, []);
 
     return (
@@ -398,6 +461,7 @@ function App() {
                             onSelectApt={handleSelectApt}
                             onShowPanorama={handleShowPanorama}
                             favorites={favorites}
+                            onMapMove={handleMapMove}
                         />
                     ) : (
                         <GoogleMap
@@ -408,6 +472,7 @@ function App() {
                             onSelectApt={handleSelectApt}
                             onShowPanorama={handleShowPanorama}
                             favorites={favorites}
+                            onMapMove={handleMapMove}
                         />
                     )}
 

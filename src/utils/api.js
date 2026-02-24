@@ -64,11 +64,27 @@ export async function fetchApartmentsByKeyword(regionCode, keyword, months = 6) 
 export async function geocodeAddress(query) {
     try {
         const { data } = await api.get('/geocode', {
-            params: { query },
+            params: { query, type: 'address' },
         });
         return data;
     } catch (e) {
         console.error('Geocoding failed for:', query, e.message);
+        return { addresses: [] };
+    }
+}
+
+/**
+ * Keyword Search - 상호명/아파트명으로 좌표 변환 (서버 API 사용)
+ * @param {string} query - 상호명/아파트명 등 키워드
+ */
+export async function geocodeKeyword(query) {
+    try {
+        const { data } = await api.get('/geocode', {
+            params: { query, type: 'keyword' },
+        });
+        return data;
+    } catch (e) {
+        console.error('Keyword geocoding failed for:', query, e.message);
         return { addresses: [] };
     }
 }

@@ -162,14 +162,16 @@ export default function KakaoMap({ center, zoom, apartments, selectedApt, onSele
 
             {/* Custom Controls Overlay */}
             <div className="map-controls-overlay">
-                {selectedApt?.lat && selectedApt?.lng && (
-                    <button
-                        className="map-control-btn"
-                        onClick={() => onShowPanorama(selectedApt.lat, selectedApt.lng)}
-                    >
-                        📷 거리뷰
-                    </button>
-                )}
+                <button
+                    className="map-control-btn"
+                    onClick={() => {
+                        const lat = selectedApt?.lat || center.lat;
+                        const lng = selectedApt?.lng || center.lng;
+                        onShowPanorama(lat, lng);
+                    }}
+                >
+                    📷 거리뷰
+                </button>
             </div>
         </div>
     );

@@ -33,6 +33,16 @@ function GoogleMapComponent({ center, zoom, apartments, selectedApt, onSelectApt
             map.setCenter(center);
         }
         map.setZoom(zoom);
+
+        // Position mapTypeControl to avoid overlap with custom controls
+        if (window.google) {
+            map.setOptions({
+                mapTypeControlOptions: {
+                    position: window.google.maps.ControlPosition.TOP_RIGHT,
+                },
+            });
+        }
+
         setMap(map);
         mapRef.current = map;
 

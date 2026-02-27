@@ -7,6 +7,7 @@ import AptDetailPanel from './components/AptDetailPanel';
 import KakaoMap from './components/KakaoMap';
 import PanoramaView from './components/PanoramaView';
 import { fetchApartments, geocodeAddress, fetchApartmentsByKeyword, geocodeKeyword } from './utils/api';
+import { PYEONG_OPTIONS, BUILD_YEAR_OPTIONS } from './components/SearchPanel';
 import { REGIONS, DISTRICTS, REGION_CENTERS } from './utils/regions';
 
 import GoogleMap from './components/GoogleMap';
@@ -49,7 +50,7 @@ function App() {
         });
     }, []);
 
-    const handleSearch = useCallback(async (regionCode, yearMonth, regionName, districtName, keyword = '') => {
+    const handleSearch = useCallback(async (regionCode, yearMonth, regionName, districtName, keyword = '', filters = {}) => {
         setLoading(true);
         setError(null);
         setSelectedApt(null);
@@ -65,7 +66,30 @@ function App() {
                 setSearchInfo({ regionCode, yearMonth, regionName, districtName, keyword: '' });
             }
 
-            setApartments(data.apartments || []);
+            let filteredApartments = data.apartments || [];
+
+            // 건축년도 필터 적용
+            if (filters.buildYear) {
+                const [minYear, maxYear] = filters.buildYear.split('-').map(Number);
+                filteredApartments = filteredApartments.filter(apt =>
+                    apt.buildYear >= minYear && apt.buildYear <= maxYear
+                );
+            }
+
+            // 평수 필터 적용 (전용면적 기준)
+            if (filters.pyeong) {
+                const pyeongOption = PYEONG_OPTIONS.find(o => o.value === filters.pyeong);
+                if (pyeongOption) {
+                    filteredApartments = filteredApartments.map(apt => {
+                        const filteredTx = apt.transactions.filter(t =>
+                            t.area >= pyeongOption.minArea && t.area < pyeongOption.maxArea
+                        );
+                        return { ...apt, transactions: filteredTx };
+                    }).filter(apt => apt.transactions.length > 0);
+                }
+            }
+
+            setApartments(filteredApartments);
 
             // Move map to region center
             const regionPrefix = regionCode.substring(0, 2);
@@ -76,8 +100,7 @@ function App() {
             }
 
             // Geocode apartments for map markers
-            // const geocoded = []; // Removed to avoid conflict with const geocoded below
-            const aptGroups = data.apartments || [];
+            const aptGroups = filteredApartments;
 
             // Geocode up to 30 apartments for display
             const toGeocode = aptGroups.slice(0, 30);
@@ -323,6 +346,17 @@ function App() {
                                 <SearchPanel onSearch={handleSearch} loading={loading} />
                                 {error && <div className="error-msg">{error}</div>}
                                 <StatsCards apartments={apartments} searchInfo={searchInfo} />
+
+                                {/* No results message */}
+                                {!loading && apartments.length === 0 && searchInfo.regionCode && (
+                                    <div className="empty-state" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
+                                        <p style={{ margin: 0, fontWeight: 600, marginBottom: '0.5rem' }}>조회된 데이터가 없습니다.</p>
+                                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                                            검색 조건(거래 년월, 건축년도, 평수)을<br />변경하여 다시 검색해 보세요.
+                                        </p>
+                                    </div>
+                                )}
 
                                 {/* Apartment list */}
                                 {apartments.length > 0 && (

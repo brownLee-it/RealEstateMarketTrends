@@ -93,6 +93,7 @@ router.get('/', async (req, res) => {
             jibun: String(item['지번'] || item.jibun || '').trim(),
             regionCode: String(item['지역코드'] || item.dealingGbn || regionCode).trim(),
             serialNumber: String(item['일련번호'] || '').trim(),
+            aptDong: String(item['동'] || '').trim(),
         }));
 
         // Group by apartment name for aggregation
@@ -116,6 +117,7 @@ router.get('/', async (req, res) => {
                 dealYear: apt.dealYear,
                 dealMonth: apt.dealMonth,
                 dealDay: apt.dealDay,
+                aptDong: apt.aptDong,
             });
         });
 
@@ -209,6 +211,7 @@ router.get('/history', async (req, res) => {
                                         dealYear: parseInt(item['년'] || item.dealYear || 0, 10),
                                         dealMonth: parseInt(item['월'] || item.dealMonth || 0, 10),
                                         dealDay: parseInt(item['일'] || item.dealDay || 0, 10),
+                                        aptDong: String(item['동'] || '').trim(),
                                     });
                                 }
                             });
@@ -308,6 +311,7 @@ router.get('/search', async (req, res) => {
                                 dong: String(item['법정동'] || item.umdNm || '').trim(),
                                 jibun: String(item['지번'] || item.jibun || '').trim(),
                                 regionCode: String(item['지역코드'] || item.dealingGbn || regionCode).trim(),
+                                aptDong: String(item['동'] || '').trim(),
                             })).filter(apt => apt.aptName.includes(keyword));
 
                             return { ym, items: monthApartments };
@@ -346,6 +350,7 @@ router.get('/search', async (req, res) => {
                         dealYear: apt.dealYear,
                         dealMonth: apt.dealMonth,
                         dealDay: apt.dealDay,
+                        aptDong: apt.aptDong,
                     });
                 });
                 allApartments.push(...Array.from(groupedForMonth.values()));

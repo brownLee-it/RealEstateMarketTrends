@@ -2,11 +2,37 @@ import { useState } from 'react';
 import { REGIONS, DISTRICTS } from '../utils/regions';
 import { getRecentYearMonths } from '../utils/format';
 
+// 평수 필터 옵션 (전용면적 m² 기준)
+const PYEONG_OPTIONS = [
+    { label: '전체', value: '' },
+    { label: '10평대 (33~66㎡)', value: '10', minArea: 33, maxArea: 66 },
+    { label: '20평대 (66~99㎡)', value: '20', minArea: 66, maxArea: 99 },
+    { label: '30평대 (99~132㎡)', value: '30', minArea: 99, maxArea: 132 },
+    { label: '40평대 (132~165㎡)', value: '40', minArea: 132, maxArea: 165 },
+    { label: '50평 이상 (165㎡~)', value: '50', minArea: 165, maxArea: 99999 },
+];
+
+// 건축년도 필터 옵션
+const BUILD_YEAR_OPTIONS = [
+    { label: '전체', value: '' },
+    { label: '~1990년', minYear: 0, maxYear: 1990 },
+    { label: '1991~2000년', minYear: 1991, maxYear: 2000 },
+    { label: '2001~2005년', minYear: 2001, maxYear: 2005 },
+    { label: '2006~2010년', minYear: 2006, maxYear: 2010 },
+    { label: '2011~2015년', minYear: 2011, maxYear: 2015 },
+    { label: '2016~2020년', minYear: 2016, maxYear: 2020 },
+    { label: '2021년~', minYear: 2021, maxYear: 9999 },
+];
+
+export { PYEONG_OPTIONS, BUILD_YEAR_OPTIONS };
+
 export default function SearchPanel({ onSearch, loading }) {
     const [selectedRegion, setSelectedRegion] = useState('');
     const [selectedDistrict, setSelectedDistrict] = useState('');
     const [selectedYearMonth, setSelectedYearMonth] = useState('');
     const [keyword, setKeyword] = useState('');
+    const [selectedPyeong, setSelectedPyeong] = useState('');
+    const [selectedBuildYear, setSelectedBuildYear] = useState('');
 
     const yearMonths = getRecentYearMonths(24);
     const districts = selectedRegion ? (DISTRICTS[selectedRegion] || []) : [];
@@ -28,7 +54,8 @@ export default function SearchPanel({ onSearch, loading }) {
             selectedYearMonth,
             region?.name || '',
             district?.name || '',
-            keyword.trim()
+            keyword.trim(),
+            { pyeong: selectedPyeong, buildYear: selectedBuildYear }
         );
     };
 
@@ -99,6 +126,31 @@ export default function SearchPanel({ onSearch, loading }) {
 
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px', marginTop: '-4px', textAlign: 'right' }}>
                 * 아파트명 입력 시 최근 6개월 거래 내역을 모두 검색합니다.
+            </div>
+
+            <div className="search-row" style={{ display: 'flex', gap: '8px' }}>
+                <select
+                    className="search-select"
+                    value={selectedBuildYear}
+                    onChange={(e) => setSelectedBuildYear(e.target.value)}
+                    style={{ flex: 1 }}
+                >
+                    <option value="">건축년도 (전체)</option>
+                    {BUILD_YEAR_OPTIONS.filter(o => o.value !== '').map((o, i) => (
+                        <option key={i} value={`${o.minYear}-${o.maxYear}`}>{o.label}</option>
+                    ))}
+                </select>
+                <select
+                    className="search-select"
+                    value={selectedPyeong}
+                    onChange={(e) => setSelectedPyeong(e.target.value)}
+                    style={{ flex: 1 }}
+                >
+                    <option value="">평수 (전체)</option>
+                    {PYEONG_OPTIONS.filter(o => o.value !== '').map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                </select>
             </div>
 
             <button

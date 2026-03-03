@@ -11,16 +11,19 @@ export default function PriceChart({ apartment, searchInfo }) {
     const [loading, setLoading] = useState(false);
     const [months, setMonths] = useState(12);
 
+    // searchInfo.regionCode가 없으면 apartment.regionCode를 폴백으로 사용
+    const effectiveRegionCode = searchInfo.regionCode || apartment?.regionCode || '';
+
     useEffect(() => {
-        if (!apartment || !searchInfo.regionCode) return;
+        if (!apartment || !effectiveRegionCode) return;
         loadHistory();
-    }, [apartment?.aptName, searchInfo.regionCode, months]);
+    }, [apartment?.aptName, effectiveRegionCode, months]);
 
     const loadHistory = async () => {
         setLoading(true);
         try {
             const data = await fetchApartmentHistory(
-                searchInfo.regionCode,
+                effectiveRegionCode,
                 apartment.aptName,
                 months
             );

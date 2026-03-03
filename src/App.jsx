@@ -45,10 +45,12 @@ function App() {
             if (isFav) {
                 return prev.filter(f => !(f.aptName === apt.aptName && f.dong === apt.dong && f.jibun === apt.jibun));
             } else {
-                return [...prev, apt];
+                // regionCode가 숫자가 아닌 경우(예: '중개거래') searchInfo에서 가져옴
+                const validRegionCode = /^\d+$/.test(apt.regionCode) ? apt.regionCode : searchInfo.regionCode;
+                return [...prev, { ...apt, regionCode: validRegionCode }];
             }
         });
-    }, []);
+    }, [searchInfo.regionCode]);
 
     const handleSearch = useCallback(async (regionCode, yearMonth, regionName, districtName, keyword = '', filters = {}) => {
         setLoading(true);
@@ -273,6 +275,112 @@ function App() {
         }
     }, [searchInfo]);
 
+    const handleFavoriteClick = useCallback(async (apt) => {
+        // When clicking a favorite, navigate the map to that apartment
+        if (apt.lat && apt.lng) {
+            setMapCenter({ lat: apt.lat, lng: apt.lng });
+            setMapZoom(17);
+            setSelectedApt(apt);
+            setSidebarTab('detail');
+
+            // Add to geocodedApts if not already there so it shows on the map
+            setGeocodedApts(prev => {
+                const exists = prev.some(g => g.aptName === apt.aptName && g.dong === apt.dong && g.jibun === apt.jibun);
+                if (!exists) return [...prev, apt];
+                return prev;
+            });
+
+            // Update searchInfo for display
+            if (apt.regionCode) {
+                const regionPrefix = apt.regionCode.substring(0, 2);
+                const region = REGIONS.find(r => r.code === regionPrefix);
+                const districtList = DISTRICTS[regionPrefix] || [];
+                const district = districtList.find(d => d.code === apt.regionCode);
+                if (region) {
+                    setSearchInfo(prev => ({
+                        ...prev,
+                        regionCode: apt.regionCode,
+                        regionName: region.name,
+                        districtName: district ? district.name : prev.districtName
+                    }));
+                }
+            }
+            return;
+        }
+
+        // If no coordinates, geocode and then navigate
+        setLoading(true);
+        setSelectedApt(apt);
+        setSidebarTab('detail');
+
+        try {
+            let targetDistrictName = '';
+            let targetRegionName = '';
+            if (apt.regionCode) {
+                const regionPrefix = apt.regionCode.substring(0, 2);
+                const region = REGIONS.find(r => r.code === regionPrefix);
+                const districtList = DISTRICTS[regionPrefix] || [];
+                const district = districtList.find(d => d.code === apt.regionCode);
+                if (region) {
+                    targetRegionName = region.name;
+                    if (district) targetDistrictName = district.name;
+                }
+            }
+
+            let keywordQuery = `${targetDistrictName || ''} ${apt.dong} ${apt.aptName}`.trim();
+            let geoResult = await geocodeKeyword(keywordQuery);
+
+            if (!geoResult.addresses || geoResult.addresses.length === 0) {
+                const address = `${targetDistrictName || ''} ${apt.dong} ${apt.jibun}`.trim();
+                geoResult = await geocodeAddress(address);
+            }
+
+            if (!geoResult.addresses || geoResult.addresses.length === 0) {
+                const fallback = `${targetDistrictName || ''} ${apt.dong}`.trim();
+                geoResult = await geocodeAddress(fallback);
+            }
+
+            if (geoResult.addresses && geoResult.addresses.length > 0) {
+                const { x, y } = geoResult.addresses[0];
+                const updatedApt = {
+                    ...apt,
+                    lat: parseFloat(y),
+                    lng: parseFloat(x)
+                };
+                setSelectedApt(updatedApt);
+                setMapCenter({ lat: updatedApt.lat, lng: updatedApt.lng });
+                setMapZoom(17);
+
+                setGeocodedApts(prev => {
+                    const exists = prev.some(g => g.aptName === updatedApt.aptName && g.dong === updatedApt.dong && g.jibun === updatedApt.jibun);
+                    if (!exists) return [...prev, updatedApt];
+                    return prev;
+                });
+
+                // Update favorites with coordinates for future use
+                setFavorites(prev => prev.map(f => {
+                    if (f.aptName === apt.aptName && f.dong === apt.dong && f.jibun === apt.jibun) {
+                        return { ...f, lat: updatedApt.lat, lng: updatedApt.lng };
+                    }
+                    return f;
+                }));
+            }
+
+            if (targetRegionName) {
+                setSearchInfo(prev => ({
+                    ...prev,
+                    regionCode: apt.regionCode,
+                    regionName: targetRegionName,
+                    districtName: targetDistrictName || prev.districtName
+                }));
+            }
+        } catch (err) {
+            console.error('Geocoding failed for favorite:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     const handleShowPanorama = useCallback((lat, lng) => {
         setPanoramaPosition({ lat, lng });
         setShowPanorama(true);
@@ -435,7 +543,7 @@ function App() {
                                                 <div
                                                     key={`fav_${apt.aptName}_${apt.dong}_${apt.jibun}_${idx}`}
                                                     className={`apt-list-item ${selectedApt?.aptName === apt.aptName && selectedApt?.dong === apt.dong && selectedApt?.jibun === apt.jibun ? 'selected' : ''}`}
-                                                    onClick={() => handleSelectApt(apt)}
+                                                    onClick={() => handleFavoriteClick(apt)}
                                                     style={{ position: 'relative' }}
                                                 >
                                                     <div className="apt-list-name">{apt.aptName}</div>

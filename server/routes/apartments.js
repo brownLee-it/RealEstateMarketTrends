@@ -91,7 +91,7 @@ router.get('/', async (req, res) => {
             dealDay: parseInt(item['일'] || item.dealDay || 0, 10),
             dong: String(item['법정동'] || item.umdNm || '').trim(),
             jibun: String(item['지번'] || item.jibun || '').trim(),
-            regionCode: String(item['지역코드'] || item.dealingGbn || regionCode).trim(),
+            regionCode: regionCode,
             serialNumber: String(item['일련번호'] || '').trim(),
             aptDong: String(item['동'] || '').trim(),
         }));
